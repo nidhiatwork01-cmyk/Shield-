@@ -1,0 +1,23 @@
+# Gradle & Build
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+
+# Local Secrets & Credentials (Ignored for GitHub security)
+KEYS.md
+.env
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+.pytest_cache/
+*.tmp
