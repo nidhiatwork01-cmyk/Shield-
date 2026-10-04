@@ -1,6 +1,7 @@
 package com.scamshield.app
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -17,12 +18,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.scamshield.app.overlay.BubbleOverlayService
 import com.scamshield.app.setup.SetupActivity
 import com.scamshield.app.ui.theme.ScamShieldTheme
 import com.scamshield.app.ui.theme.VerdictGreen
 
 class MainActivity : ComponentActivity() {
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -32,9 +35,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Start the floating bubble service
-        val serviceIntent = Intent(this, BubbleOverlayService::class.java)
-        startForegroundService(serviceIntent)
+        startBubbleServiceSafely()
 
         setContent {
             ScamShieldTheme {
@@ -54,13 +55,37 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        if (isSetupComplete() && !BubbleOverlayService.isRunning) {
+            startBubbleServiceSafely()
+        }
+    }
+
+    private fun startBubbleServiceSafely() {
+        try {
+            val serviceIntent = Intent(this, BubbleOverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(this, serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
     
     private fun isSetupComplete(): Boolean {
-        val notificationEnabled = NotificationManagerCompat
-            .getEnabledListenerPackages(this)
-            .contains(packageName)
-        val overlayEnabled = Settings.canDrawOverlays(this)
-        return notificationEnabled && overlayEnabled
+        return try {
+            val notificationEnabled = NotificationManagerCompat
+                .getEnabledListenerPackages(this)
+                .contains(packageName)
+            val overlayEnabled = Settings.canDrawOverlays(this)
+            notificationEnabled && overlayEnabled
+        } catch (e: Exception) {
+            true // Fallback to avoid closing app
+        }
     }
 }
 
@@ -131,7 +156,7 @@ fun MainScreen(onOpenSettings: () -> Unit, onStopService: () -> Unit) {
             onClick = onOpenSettings,
             modifier = Modifier.fillMaxWidth().height(56.dp)
         ) {
-            Text("Settings", fontSize = 16.sp)
+            Text("Settings & Permissions", fontSize = 16.sp)
         }
     }
 }
