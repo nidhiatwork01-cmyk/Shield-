@@ -1,22 +1,34 @@
 package com.scamshield.app.listener
 
-import android.util.Patterns
+import java.util.regex.Pattern
 
 object UrlExtractor {
-    fun extractUrls(text: String): List<String> {
+
+    // Matches standard http(s) URLs as well as common domain patterns (e.g. site.xyz/path, bit.ly/abc)
+    private val URL_PATTERN = Pattern.compile(
+        "((https?://)?[a-zA-Z0-9][-a-zA-Z0-9]*(\\.[a-zA-Z0-9][-a-zA-Z0-9]*)+(:\\d+)?(/[^\\s]*)?)",
+        Pattern.CASE_INSENSITIVE
+    )
+
+    fun extractUrls(text: String?): List<String> {
+        if (text.isNullOrBlank()) return emptyList()
+
         val urls = mutableListOf<String>()
-        val matcher = Patterns.WEB_URL.matcher(text)
+        val matcher = URL_PATTERN.matcher(text)
+
         while (matcher.find()) {
-            val url = matcher.group()
-            if (!isSafeDomain(url)) {
-                urls.add(url)
+            val candidate = matcher.group().trimEnd('.', ',', '!', '?', ';', ':', ')', ']')
+            // Avoid false positives like version numbers (e.g. 1.0.0) or short filenames
+            if (candidate.contains(".") && !candidate.matches(Regex("^[0-9.]+$")) && candidate.length > 4) {
+                val normalized = if (!candidate.startsWith("http://", ignoreCase = true) && 
+                                     !candidate.startsWith("https://", ignoreCase = true)) {
+                    "https://$candidate"
+                } else {
+                    candidate
+                }
+                urls.add(normalized)
             }
         }
         return urls
-    }
-
-    private fun isSafeDomain(url: String): Boolean {
-        val lowerUrl = url.lowercase()
-        return lowerUrl.contains("google.com") || lowerUrl.contains("youtube.com")
     }
 }
